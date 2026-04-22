@@ -70,6 +70,46 @@ def create_goals_table():
         print(f"Error creating goals table: {e}")
 
 
+def create_subscriptions_table():
+    """Create the subscriptions table if it doesn't already exist."""
+    try:
+        conn = _connect()
+        if not conn: return
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                name     TEXT,
+                amount   REAL,
+                cycle    TEXT,
+                date     TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"Error creating subscriptions table: {e}")
+
+
+def create_income_table():
+    """Create the income table if it doesn't already exist."""
+    try:
+        conn = _connect()
+        if not conn: return
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS income (
+                id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                source   TEXT,
+                amount   REAL,
+                date     TEXT,
+                note     TEXT
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"Error creating income table: {e}")
+
+
 # ── Expense operations ────────────────────────────────────────────────────────
 
 def add_expense(amount, category, date, note):
@@ -211,4 +251,92 @@ def delete_goal(goal_id):
         return True
     except sqlite3.Error as e:
         print(f"Error deleting goal: {e}")
+        return False
+
+
+# ── Subscription operations ───────────────────────────────────────────────────
+
+def add_subscription(name, amount, cycle, date):
+    """Insert a new subscription."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute(
+            "INSERT INTO subscriptions (name, amount, cycle, date) VALUES (?, ?, ?, ?)",
+            (name, amount, cycle, date),
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error adding subscription: {e}")
+        return False
+
+def get_all_subscriptions():
+    """Return all subscriptions."""
+    try:
+        conn = _connect()
+        if not conn: return []
+        rows = conn.execute("SELECT * FROM subscriptions").fetchall()
+        conn.close()
+        return rows
+    except sqlite3.Error as e:
+        print(f"Error fetching subscriptions: {e}")
+        return []
+
+def delete_subscription(sub_id):
+    """Delete a subscription."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute("DELETE FROM subscriptions WHERE id = ?", (sub_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error deleting subscription: {e}")
+        return False
+
+
+# ── Income operations ─────────────────────────────────────────────────────────
+
+def add_income(source, amount, date, note):
+    """Insert new income."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute(
+            "INSERT INTO income (source, amount, date, note) VALUES (?, ?, ?, ?)",
+            (source, amount, date, note),
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error adding income: {e}")
+        return False
+
+def get_all_income():
+    """Return all income streams."""
+    try:
+        conn = _connect()
+        if not conn: return []
+        rows = conn.execute("SELECT * FROM income").fetchall()
+        conn.close()
+        return rows
+    except sqlite3.Error as e:
+        print(f"Error fetching income: {e}")
+        return []
+
+def delete_income(income_id):
+    """Delete an income record."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute("DELETE FROM income WHERE id = ?", (income_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error deleting income: {e}")
         return False
