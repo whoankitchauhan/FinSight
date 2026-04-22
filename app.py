@@ -11,10 +11,13 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import os
-from datetime import datetime
+import re
+import calendar
+from datetime import datetime, timedelta
 
-from database import (create_table, create_budget_table, add_expense,
-                      get_all_expenses, set_budget, get_budgets)
+from database import (create_table, create_budget_table, create_goals_table, add_expense,
+                      get_all_expenses, set_budget, get_budgets, add_goal, get_all_goals,
+                      add_funds_to_goal, delete_goal, delete_expense)
 from insights import generate_insights
 
 # Ensure runtime directories exist before any DB calls
@@ -23,6 +26,7 @@ try:
     os.makedirs("exports", exist_ok=True)
     create_table()
     create_budget_table()
+    create_goals_table()
 except Exception as e:
     st.error(f"Critical error during application startup: {str(e)}")
     st.stop()
@@ -321,6 +325,25 @@ hr {{ border-color:{BOR}!important; }}
 
 # ── UI helper functions ────────────────────────────────────────────────────────
 
+def parse_smart_add(text):
+    """Extract amount, category, and date from natural language."""
+    match_amt = re.search(r'\b\d+(\.\d+)?\b', text)
+    if not match_amt: return None
+    amt = float(match_amt.group())
+    
+    cat_found = "Other"
+    text_lower = text.lower()
+    for c in CATEGORIES:
+        if c.lower() in text_lower:
+            cat_found = c
+            break
+            
+    date_val = datetime.today().date()
+    if "yesterday" in text_lower:
+        date_val -= timedelta(days=1)
+        
+    return amt, cat_found, date_val, text
+
 def kpi(label, value, hint, color):
     """Render a single KPI card with a coloured left border."""
     st.markdown(
@@ -403,6 +426,7 @@ with st.sidebar:
     month_total = 0
     month_count = 0
     cat_month   = {}
+    mom_str     = ""
     if raw_all:
         df_all = pd.DataFrame(raw_all, columns=["ID", "Amount", "Category", "Date", "Note"])
         df_all["Date"] = pd.to_datetime(df_all["Date"])
@@ -413,12 +437,27 @@ with st.sidebar:
         month_total = mdf["Amount"].sum()
         month_count = len(mdf)
         cat_month   = mdf.groupby("Category")["Amount"].sum().to_dict()
+        
+        # MoM Trend Calculation
+        last_m = (now.replace(day=1) - timedelta(days=1))
+        lmdf = df_all[
+            (df_all["Date"].dt.month == last_m.month) &
+            (df_all["Date"].dt.year  == last_m.year)
+        ]
+        last_total = lmdf["Amount"].sum()
+        if last_total > 0:
+            diff_pct = ((month_total - last_total) / last_total) * 100
+            if diff_pct > 0:
+                mom_str = f'<div style="font-size:0.75rem; color:#f43f5e; font-weight:600; margin-top:4px;">▲ {diff_pct:.0f}% vs last month</div>'
+            else:
+                mom_str = f'<div style="font-size:0.75rem; color:#10b981; font-weight:600; margin-top:4px;">▼ {abs(diff_pct):.0f}% vs last month</div>'
 
     month_name = now.strftime("%B %Y")
     st.markdown(
         f'<div class="sb-month-card">'
         f'  <div class="sb-month-label">📅 {month_name}</div>'
         f'  <div class="sb-month-val">₹{month_total:,.0f}</div>'
+        f'  {mom_str}'
         f'  <div class="sb-month-sub">'
         f'    {month_count} transaction{"s" if month_count != 1 else ""} this month'
         f'  </div>'
@@ -428,7 +467,7 @@ with st.sidebar:
 
     # Navigation buttons — active page gets a filled primary style
     st.markdown(f'<div class="sb-nav-label">Navigation</div>', unsafe_allow_html=True)
-    nav_items = [("🏠", "Dashboard"), ("➕", "Add Expense"), ("💰", "Budgets")]
+    nav_items = [("🏠", "Dashboard"), ("➕", "Add Expense"), ("💰", "Budgets"), ("🎯", "Goals")]
     for icon, name in nav_items:
         active = st.session_state.page == name
         if st.button(
@@ -599,6 +638,97 @@ if page == "Dashboard":
         st.plotly_chart(plotly_fig(fig_pie), width='stretch')
         st.markdown('</div>', unsafe_allow_html=True)
 
+    # Daily Heatmap
+    sec("Daily Activity (This Month)")
+    st.markdown('<div class="chw">', unsafe_allow_html=True)
+    if fdf.empty:
+        st.info("No data available to generate a heatmap.")
+    else:
+        hm_df = fdf[fdf['Date'].dt.month == now.month].copy()
+        if hm_df.empty:
+            st.caption("No spending recorded in the current month for the heatmap.")
+        else:
+            hm_df['Day'] = hm_df['Date'].dt.day
+            daily_spend = hm_df.groupby('Day')['Amount'].sum().to_dict()
+            max_spend = max(daily_spend.values()) if daily_spend else 1
+            
+            calendar.setfirstweekday(calendar.SUNDAY)
+            cal = calendar.monthcalendar(now.year, now.month)
+            
+            z_data = []
+            text_data = []
+            spend_data = []
+            for weekday in range(7):
+                row_z = []
+                row_t = []
+                row_s = []
+                for week in cal:
+                    day = week[weekday]
+                    if day == 0:
+                        row_z.append(None)
+                        row_t.append("")
+                        row_s.append(0)
+                    else:
+                        amt = daily_spend.get(day, 0)
+                        row_t.append(f"{now.strftime('%b')} {day}")
+                        row_s.append(amt)
+                        
+                        # Discretize into 5 levels (0=None, 1=Low, 2=Medium, 3=High, 4=Max)
+                        if amt == 0:
+                            row_z.append(0)
+                        elif amt < max_spend * 0.25:
+                            row_z.append(1)
+                        elif amt < max_spend * 0.5:
+                            row_z.append(2)
+                        elif amt < max_spend * 0.75:
+                            row_z.append(3)
+                        else:
+                            row_z.append(4)
+                z_data.append(row_z)
+                text_data.append(row_t)
+                spend_data.append(row_s)
+            
+            # Reverse so that Sunday is at the top of the chart
+            z_data.reverse()
+            text_data.reverse()
+            spend_data.reverse()
+            y_labels = ["Sat", "Fri", "Thu", "Wed", "Tue", "Mon", "Sun"]
+            
+            # GitHub-style discrete colorscale using rgba for Plotly compatibility
+            c1, c2, c3, c4 = "rgba(99, 102, 241, 0.3)", "rgba(99, 102, 241, 0.5)", "rgba(99, 102, 241, 0.7)", P
+            discrete_colors = [
+                [0.0, BOR], [0.2, BOR],
+                [0.2, c1],  [0.4, c1],
+                [0.4, c2],  [0.6, c2],
+                [0.6, c3],  [0.8, c3],
+                [0.8, c4],  [1.0, c4]
+            ]
+            
+            fig_hm = go.Figure(data=go.Heatmap(
+                z=z_data,
+                x=list(range(len(cal))),
+                y=y_labels,
+                text=text_data,
+                customdata=spend_data,
+                colorscale=discrete_colors,
+                showscale=False,
+                xgap=4,
+                ygap=4,
+                hovertemplate="<b>%{text}</b><br>Spend: ₹%{customdata:,.0f}<extra></extra>",
+                hoverongaps=False
+            ))
+            fig_hm.update_layout(
+                height=200, 
+                margin=dict(l=10, r=10, t=30, b=10),
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                title=dict(text=f"Spending Intensity ({now.strftime('%B')})", font=dict(color=TX3, size=11)),
+                xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+                yaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color=TX3, size=10))
+            )
+            st.plotly_chart(fig_hm, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
     # Monthly spend trend line
     sec("Monthly Trend")
     mon = fdf.copy()
@@ -637,6 +767,20 @@ if page == "Dashboard":
             f'🧠 Smart Insights</div>',
             unsafe_allow_html=True,
         )
+        
+        # Predictive Forecast Insight (Always visible based on current month data)
+        current_day = now.day
+        days_in_month = (now.replace(month=now.month % 12 + 1, day=1) - timedelta(days=1)).day
+        if current_day > 0 and 'month_total' in locals() and month_total > 0:
+            forecast = (month_total / current_day) * days_in_month
+            st.markdown(
+                f'<div class="ins" style="border-left: 3px solid {V};">'
+                f'<span class="ic">🔮</span>'
+                f'<span class="tx"><b>Smart Forecast:</b> Based on your velocity this month, you are projected to spend <b>₹{forecast:,.0f}</b> by month-end.</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+
         ico_list = ["💡", "🏆", "📉", "⚠️", "🔍"]
         for i, text in enumerate(generate_insights(fdf)):
             st.markdown(
@@ -722,7 +866,21 @@ elif page == "Add Expense":
     # Narrow the form to the centre third of the page for readability
     _, fc, _ = st.columns([1, 2, 1])
     with fc:
-        sec("Transaction Details")
+        sec("⚡ Smart Add")
+        smart_text = st.text_input("Type naturally (e.g. '500 for lunch yesterday')", key="smart_add")
+        if st.button("Magic Add", width="stretch", type="primary"):
+            if smart_text:
+                parsed = parse_smart_add(smart_text)
+                if parsed:
+                    p_amt, p_cat, p_date, p_note = parsed
+                    if add_expense(p_amt, p_cat, str(p_date), p_note):
+                        st.success(f"✨ Magic! ₹{p_amt:,.2f} added to **{p_cat}**.")
+                    else:
+                        st.error("Database error.")
+                else:
+                    st.error("Could not understand the amount. Please try again.")
+
+        sec("Or Add Manually")
         amount   = st.number_input("Amount (₹)", min_value=0.0, step=10.0, format="%.2f")
         category = st.selectbox(
             "Category", CATEGORIES,
@@ -748,19 +906,20 @@ elif page == "Add Expense":
     if raw:
         df_all = pd.DataFrame(raw, columns=["ID", "Amount", "Category", "Date", "Note"])
         df_all["Date"] = pd.to_datetime(df_all["Date"])
-        recent = (
-            df_all.sort_values("Date", ascending=False)
-                  .head(5)
-                  .drop(columns=["ID"])
-                  .copy()
-        )
-        recent["Date"]   = recent["Date"].dt.strftime("%d %b %Y")
-        recent["Amount"] = recent["Amount"].apply(lambda x: f"₹{x:,.2f}")
+        recent_rows = df_all.sort_values("Date", ascending=False).head(5)
 
         _, rc, _ = st.columns([1, 2, 1])
         with rc:
             sec("Recent Transactions")
-            st.dataframe(recent, width='stretch', hide_index=True)
+            for _, row in recent_rows.iterrows():
+                r1, r2, r3, r4 = st.columns([3, 2, 2, 1])
+                r1.markdown(f"<span style='font-size:0.85rem;color:{TX1}'><b>{CAT_ICON.get(row['Category'], '📦')} {row['Category']}</b></span>", unsafe_allow_html=True)
+                r2.markdown(f"<span style='font-size:0.85rem;color:{TX2}'>₹{row['Amount']:,.2f}</span>", unsafe_allow_html=True)
+                r3.markdown(f"<span style='font-size:0.85rem;color:{TX3}'>{row['Date'].strftime('%d %b')}</span>", unsafe_allow_html=True)
+                with r4:
+                    if st.button("🗑️", key=f"del_{row['ID']}", help="Delete this expense"):
+                        delete_expense(row['ID'])
+                        st.rerun()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -846,3 +1005,75 @@ elif page == "Budgets":
             '</div>',
             unsafe_allow_html=True,
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  GOALS
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == "Goals":
+    hero(
+        "Financial Goals",
+        "Set savings targets and track your progress towards the things you want.",
+        f"linear-gradient(135deg, #059669 0%, {EM} 55%, #34d399 100%)",
+        chip="🎯 Savings Goals",
+    )
+    
+    gc1, gc2 = st.columns([1, 2])
+    with gc1:
+        sec("Create New Goal")
+        g_name = st.text_input("Goal Name", placeholder="e.g. New Laptop")
+        g_target = st.number_input("Target Amount (₹)", min_value=100.0, step=1000.0, format="%.2f", key="g_tgt")
+        if st.button("Create Goal", width="stretch", type="primary"):
+            if g_name and g_target > 0:
+                if add_goal(g_name, g_target):
+                    st.success(f"✅ Goal '{g_name}' created!")
+                    st.rerun()
+                else:
+                    st.error("Error creating goal.")
+                    
+        sec("Add Funds")
+        all_g = get_all_goals()
+        if all_g:
+            goal_opts = {g[0]: f"{g[1]} (₹{g[2]:,.0f})" for g in all_g}
+            sel_g = st.selectbox("Select Goal", options=list(goal_opts.keys()), format_func=lambda x: goal_opts[x])
+            g_add = st.number_input("Amount to Add (₹)", min_value=0.0, step=100.0, format="%.2f", key="g_add")
+            if st.button("Add Funds", width="stretch", type="primary", key="btn_add_funds"):
+                if g_add > 0:
+                    add_funds_to_goal(sel_g, g_add)
+                    st.success(f"✅ Added ₹{g_add:,.2f} to goal!")
+                    st.rerun()
+                
+    with gc2:
+        sec("Your Progress")
+        all_g = get_all_goals()
+        if not all_g:
+            st.info("No goals set yet. Create one to get started!")
+        else:
+            c1, c2 = st.columns(2)
+            for i, g in enumerate(all_g):
+                g_id, g_name, g_target, g_curr = g
+                pct = (g_curr / g_target) * 100 if g_target > 0 else 0
+                if pct > 100: pct = 100
+                
+                fig = go.Figure(go.Indicator(
+                    mode = "gauge+number",
+                    value = pct,
+                    number = {'suffix': "%", 'font': {'size': 20, 'color': TX1}},
+                    title = {'text': f"{g_name}<br><span style='font-size:0.6em;color:{TX2}'>₹{g_curr:,.0f} / ₹{g_target:,.0f}</span>", 'font': {'size': 16, 'color': TX1}},
+                    gauge = {
+                        'axis': {'range': [0, 100], 'visible': False},
+                        'bar': {'color': EM},
+                        'bgcolor': BG,
+                        'borderwidth': 0,
+                    }
+                ))
+                fig.update_layout(height=240, margin=dict(l=10, r=10, t=40, b=10), paper_bgcolor="rgba(0,0,0,0)")
+                
+                col = c1 if i % 2 == 0 else c2
+                with col:
+                    st.markdown('<div class="chw" style="text-align:center;">', unsafe_allow_html=True)
+                    st.plotly_chart(fig, use_container_width=True)
+                    if st.button(f"Delete", key=f"del_{g_id}", width="stretch"):
+                        delete_goal(g_id)
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
