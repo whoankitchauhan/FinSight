@@ -272,6 +272,12 @@ footer {{ visibility:hidden; }}
     text-transform:uppercase;letter-spacing:.12em;
     margin-bottom:8px;
 }}
+[data-testid="stSidebar"] .stButton button div {{
+    justify-content: flex-start !important;
+}}
+[data-testid="stSidebar"] .stButton button p {{
+    text-align: left !important;
+}}
 
 .sb-cat-row {{
     display:flex;align-items:center;gap:8px;
