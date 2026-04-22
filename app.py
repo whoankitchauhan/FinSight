@@ -430,7 +430,7 @@ with st.sidebar:
         if st.button(
             f"{icon}  {name}",
             key=f"nav_{name}",
-            use_container_width=True,
+            width="stretch",
             type="primary" if active else "secondary",
         ):
             st.session_state.page = name
@@ -472,7 +472,7 @@ with st.sidebar:
     with tc1:
         if st.button(
             "☀️ Light",
-            use_container_width=True,
+            width="stretch",
             type="primary" if not DARK else "secondary",
         ):
             st.session_state.theme = "light"
@@ -480,7 +480,7 @@ with st.sidebar:
     with tc2:
         if st.button(
             "🌙 Dark",
-            use_container_width=True,
+            width="stretch",
             type="primary" if DARK else "secondary",
         ):
             st.session_state.theme = "dark"
@@ -571,7 +571,7 @@ if page == "Dashboard":
             hovertemplate="<b>%{x}</b><br>₹%{y:,.2f}<extra></extra>",
         ))
         fig_bar.update_layout(title=dict(text="By Category", font=dict(color=TX3, size=11)))
-        st.plotly_chart(plotly_fig(fig_bar), use_container_width=True)
+        st.plotly_chart(plotly_fig(fig_bar), width='stretch')
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c2:
@@ -592,7 +592,7 @@ if page == "Dashboard":
                 font=dict(size=15, color=TX1, family="Inter"),
             )],
         )
-        st.plotly_chart(plotly_fig(fig_pie), use_container_width=True)
+        st.plotly_chart(plotly_fig(fig_pie), width='stretch')
         st.markdown('</div>', unsafe_allow_html=True)
 
     # Monthly spend trend line
@@ -620,7 +620,7 @@ if page == "Dashboard":
         fig_line.update_layout(
             title=dict(text="Monthly Spending Trend", font=dict(color=TX3, size=11)),
         )
-        st.plotly_chart(plotly_fig(fig_line, height=280), use_container_width=True)
+        st.plotly_chart(plotly_fig(fig_line, height=280), width='stretch')
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Smart insights (left) and budget alerts (right)
@@ -686,7 +686,7 @@ if page == "Dashboard":
     disp = fdf.drop(columns=["ID"]).copy()
     disp["Date"]   = disp["Date"].dt.strftime("%d %b %Y")
     disp["Amount"] = disp["Amount"].apply(lambda x: f"₹{x:,.2f}")
-    st.dataframe(disp, use_container_width=True, hide_index=True)
+    st.dataframe(disp, width='stretch', hide_index=True)
 
     # CSV export of the currently filtered view
     sec("Export")
@@ -723,7 +723,7 @@ elif page == "Add Expense":
         date = st.date_input("Date", value=datetime.today().date())
         note = st.text_input("Note", placeholder="Optional — e.g. Lunch at café")
         st.write("")
-        if st.button("Add Expense", use_container_width=True, type="primary"):
+        if st.button("Add Expense", width="stretch", type="primary"):
             if amount <= 0:
                 st.error("Amount must be greater than ₹0")
             else:
@@ -750,7 +750,7 @@ elif page == "Add Expense":
         _, rc, _ = st.columns([1, 2, 1])
         with rc:
             sec("Recent Transactions")
-            st.dataframe(recent, use_container_width=True, hide_index=True)
+            st.dataframe(recent, width='stretch', hide_index=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -776,7 +776,7 @@ elif page == "Budgets":
             "Monthly Budget (₹)", min_value=0.0, step=100.0, format="%.2f"
         )
         st.write("")
-        if st.button("Save Budget", use_container_width=True, type="primary"):
+        if st.button("Save Budget", width="stretch", type="primary"):
             if b_amt <= 0:
                 st.error("Budget must be greater than ₹0")
             else:
