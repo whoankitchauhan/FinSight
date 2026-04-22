@@ -17,7 +17,10 @@ from datetime import datetime, timedelta
 
 from database import (create_table, create_budget_table, create_goals_table, add_expense,
                       get_all_expenses, set_budget, get_budgets, add_goal, get_all_goals,
-                      add_funds_to_goal, delete_goal, delete_expense)
+                      add_funds_to_goal, delete_goal, delete_expense,
+                      create_subscriptions_table, create_income_table,
+                      add_subscription, get_all_subscriptions, delete_subscription,
+                      add_income, get_all_income, delete_income)
 from insights import generate_insights
 
 # Ensure runtime directories exist before any DB calls
@@ -27,6 +30,8 @@ try:
     create_table()
     create_budget_table()
     create_goals_table()
+    create_subscriptions_table()
+    create_income_table()
 except Exception as e:
     st.error(f"Critical error during application startup: {str(e)}")
     st.stop()
@@ -427,6 +432,7 @@ with st.sidebar:
     month_count = 0
     cat_month   = {}
     mom_str     = ""
+    df_all      = pd.DataFrame()
     if raw_all:
         df_all = pd.DataFrame(raw_all, columns=["ID", "Amount", "Category", "Date", "Note"])
         df_all["Date"] = pd.to_datetime(df_all["Date"])
@@ -452,6 +458,21 @@ with st.sidebar:
             else:
                 mom_str = f'<div style="font-size:0.75rem; color:#10b981; font-weight:600; margin-top:4px;">▼ {abs(diff_pct):.0f}% vs last month</div>'
 
+    # Fetch income data
+    raw_income = get_all_income()
+    month_income = 0
+    df_inc = pd.DataFrame()
+    if raw_income:
+        df_inc = pd.DataFrame(raw_income, columns=["ID", "Source", "Amount", "Date", "Note"])
+        df_inc["Date"] = pd.to_datetime(df_inc["Date"])
+        mdf_inc = df_inc[
+            (df_inc["Date"].dt.month == now.month) &
+            (df_inc["Date"].dt.year  == now.year)
+        ]
+        month_income = mdf_inc["Amount"].sum()
+
+    net_savings = month_income - month_total
+
     month_name = now.strftime("%B %Y")
     st.markdown(
         f'<div class="sb-month-card">'
@@ -467,7 +488,15 @@ with st.sidebar:
 
     # Navigation buttons — active page gets a filled primary style
     st.markdown(f'<div class="sb-nav-label">Navigation</div>', unsafe_allow_html=True)
-    nav_items = [("🏠", "Dashboard"), ("➕", "Add Expense"), ("💰", "Budgets"), ("🎯", "Goals")]
+    nav_items = [
+        ("🏠", "Dashboard"), 
+        ("➕", "Add Expense"), 
+        ("💰", "Budgets"), 
+        ("🎯", "Goals"),
+        ("💵", "Income"),
+        ("🔄", "Subscriptions"),
+        ("📄", "Reports")
+    ]
     for icon, name in nav_items:
         active = st.session_state.page == name
         if st.button(
@@ -583,16 +612,24 @@ if page == "Dashboard":
         (df["Category"].isin(cats))
     ]
 
+    fdf_inc = df_inc[
+        (df_inc["Date"].dt.date >= start) &
+        (df_inc["Date"].dt.date <= end)
+    ] if not df_inc.empty else pd.DataFrame()
+    range_income = fdf_inc["Amount"].sum() if not fdf_inc.empty else 0
+    
     # Summary KPIs
     sec("Overview")
     total = fdf["Amount"].sum()
     count = len(fdf)
     avg   = fdf["Amount"].mean() if count else 0
     top   = fdf.groupby("Category")["Amount"].sum().idxmax() if count else "—"
+    
+    range_savings = range_income - total
 
     k1, k2, k3, k4 = st.columns(4)
     with k1: kpi("Total Spent",   f"₹{total:,.2f}",               f"{count} transactions", P)
-    with k2: kpi("Transactions",  str(count),                      "in selected range",     CY)
+    with k2: kpi("Net Savings",   f"₹{range_savings:,.2f}",       f"of ₹{range_income:,.0f} income", CY)
     with k3: kpi("Avg per Entry", f"₹{avg:,.2f}",                 "across categories",     V)
     with k4: kpi("Top Category",  f"{CAT_ICON.get(top,'')} {top}", "highest spending",      AM)
 
@@ -1093,8 +1130,184 @@ elif page == "Goals":
                 col = c1 if i % 2 == 0 else c2
                 with col:
                     st.markdown('<div class="chw" style="text-align:center;">', unsafe_allow_html=True)
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width='stretch')
                     if st.button(f"Delete", key=f"del_{g_id}", width="stretch"):
                         delete_goal(g_id)
                         st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  INCOME
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == "Income":
+    hero(
+        "Income Streams",
+        "Track your cash flow to calculate true net savings.",
+        f"linear-gradient(135deg, {CY} 0%, {V} 55%, {P} 100%)",
+        chip="💵 Cash Flow",
+    )
+    
+    ic1, ic2 = st.columns([1, 2])
+    with ic1:
+        sec("Log Income")
+        with st.form("income_form", clear_on_submit=True):
+            i_src = st.text_input("Source", placeholder="e.g. Salary, Freelance")
+            i_amt = st.number_input("Amount (₹)", min_value=1.0, step=1000.0, format="%.2f")
+            i_dat = st.date_input("Date", now.date())
+            i_not = st.text_input("Note", placeholder="Optional details")
+            submitted = st.form_submit_button("Save Income", type="primary")
+            if submitted:
+                if i_src and i_amt > 0:
+                    add_income(i_src, i_amt, i_dat.strftime("%Y-%m-%d"), i_not)
+                    st.success("✅ Income saved!")
+                    st.rerun()
+                else:
+                    st.error("Please enter a valid source and amount.")
+                    
+    with ic2:
+        sec("Recent Income")
+        all_inc = get_all_income()
+        if not all_inc:
+            st.info("No income logged yet.")
+        else:
+            idf = pd.DataFrame(all_inc, columns=["ID", "Source", "Amount", "Date", "Note"])
+            idf["Date"] = pd.to_datetime(idf["Date"])
+            idf = idf.sort_values(by="Date", ascending=False)
+            
+            st.markdown('<div class="chw">', unsafe_allow_html=True)
+            for _, row in idf.iterrows():
+                st.markdown(
+                    f'<div style="display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid {BOR};">'
+                    f'  <div><div style="font-weight:600; color:{TX1};">{row["Source"]}</div>'
+                    f'  <div style="font-size:0.75rem; color:{TX2};">{row["Date"].strftime("%d %b %Y")} · {row["Note"]}</div></div>'
+                    f'  <div style="font-weight:700; color:{CY};">+₹{row["Amount"]:,.0f}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  SUBSCRIPTIONS
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == "Subscriptions":
+    hero(
+        "Subscriptions",
+        "Manage your recurring bills and monitor the silent drain on your wallet.",
+        f"linear-gradient(135deg, {V} 0%, {AM} 55%, {P} 100%)",
+        chip="🔄 Recurring",
+    )
+    
+    all_subs = get_all_subscriptions()
+    total_monthly = 0
+    if all_subs:
+        for sub in all_subs:
+            # ID, Name, Amount, Cycle, Date
+            amt = sub[2]
+            cyc = sub[3]
+            if cyc == "Yearly":
+                total_monthly += amt / 12
+            else:
+                total_monthly += amt
+                
+    st.markdown(
+        f'<div class="kpi" style="border-left-color:{V}; text-align:center; margin-bottom:24px; padding:30px;">'
+        f'  <div class="kpi-label" style="font-size:0.85rem;">Total Monthly Burden</div>'
+        f'  <div class="kpi-value" style="font-size:3rem;">₹{total_monthly:,.0f}</div>'
+        f'  <div class="kpi-hint">Your fixed recurring expenses per month</div>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
+    
+    sc1, sc2 = st.columns([1, 2])
+    with sc1:
+        sec("Add Subscription")
+        with st.form("sub_form", clear_on_submit=True):
+            s_nam = st.text_input("Service Name", placeholder="e.g. Netflix, Gym")
+            s_amt = st.number_input("Cost (₹)", min_value=1.0, step=100.0, format="%.2f")
+            s_cyc = st.selectbox("Billing Cycle", ["Monthly", "Yearly"])
+            s_dat = st.date_input("Next Billing Date", now.date())
+            submitted = st.form_submit_button("Add Subscription", type="primary")
+            if submitted:
+                if s_nam and s_amt > 0:
+                    add_subscription(s_nam, s_amt, s_cyc, s_dat.strftime("%Y-%m-%d"))
+                    st.success("✅ Subscription added!")
+                    st.rerun()
+                else:
+                    st.error("Please enter a valid name and cost.")
+                    
+    with sc2:
+        sec("Active Subscriptions")
+        if not all_subs:
+            st.info("No active subscriptions found. Great job keeping fixed costs low!")
+        else:
+            for sub in all_subs:
+                s_id, s_nam, s_amt, s_cyc, s_dat = sub
+                st.markdown('<div class="chw" style="margin-bottom:12px; padding:16px;">', unsafe_allow_html=True)
+                cols = st.columns([4, 1])
+                with cols[0]:
+                    st.markdown(
+                        f'<div style="font-size:1.1rem; font-weight:700; color:{TX1};">{s_nam}</div>'
+                        f'<div style="color:{TX2}; font-size:0.8rem;">{s_cyc} · Next bill: {s_dat}</div>',
+                        unsafe_allow_html=True
+                    )
+                with cols[1]:
+                    st.markdown(f'<div style="font-size:1.1rem; font-weight:800; color:{P}; text-align:right;">₹{s_amt:,.0f}</div>', unsafe_allow_html=True)
+                    if st.button("Delete", key=f"delsub_{s_id}", width="stretch"):
+                        delete_subscription(s_id)
+                        st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  REPORTS
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == "Reports":
+    hero(
+        "Advanced Reports",
+        "Generate custom filtered data exports for accounting and deep-dives.",
+        f"linear-gradient(135deg, {P} 0%, {CY} 55%, {EM} 100%)",
+        chip="📄 Data Export",
+    )
+    
+    raw = get_all_expenses()
+    if not raw:
+        st.info("No expenses found. Add some expenses to generate reports.")
+    else:
+        df = pd.DataFrame(raw, columns=["ID", "Amount", "Category", "Date", "Note"])
+        df["Date"] = pd.to_datetime(df["Date"])
+        
+        sec("Filter Data")
+        fc1, fc2 = st.columns(2)
+        with fc1:
+            drange = st.date_input("Select Date Range", [df["Date"].min().date(), df["Date"].max().date()])
+        with fc2:
+            cats = st.multiselect("Select Categories", df["Category"].unique().tolist(), default=df["Category"].unique().tolist())
+            
+        if len(drange) == 2:
+            start_d, end_d = drange
+            fdf = df[
+                (df["Date"].dt.date >= start_d) &
+                (df["Date"].dt.date <= end_d) &
+                (df["Category"].isin(cats))
+            ]
+            
+            sec(f"Filtered Results ({len(fdf)} transactions)")
+            
+            # Format dataframe for display
+            disp_df = fdf.copy()
+            disp_df["Date"] = disp_df["Date"].dt.strftime("%Y-%m-%d")
+            st.dataframe(disp_df, use_container_width=True, hide_index=True)
+            
+            # CSV Download
+            csv = disp_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download CSV Report",
+                data=csv,
+                file_name=f"finsight_report_{start_d}_to_{end_d}.csv",
+                mime="text/csv",
+                type="primary"
+            )
+        else:
+            st.warning("Please select a complete start and end date.")
