@@ -33,7 +33,7 @@ except Exception as e:
 
 # ── Session state defaults ─────────────────────────────────────────────────────
 if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+    st.session_state.theme = "light"
 if "page" not in st.session_state:
     st.session_state.page = "Dashboard"
 
@@ -639,21 +639,42 @@ if page == "Dashboard":
         st.markdown('</div>', unsafe_allow_html=True)
 
     # Daily Heatmap
-    sec("Daily Activity (This Month)")
+    hc1, hc2, _ = st.columns([1.8, 1.2, 7])
+    with hc1:
+        sec("Daily Activity")
+    with hc2:
+        st.markdown("<div style='margin-top: 16px;'></div>", unsafe_allow_html=True)
+        if not fdf.empty:
+            months_avail = fdf['Date'].dt.to_period('M').unique().astype(str).tolist()
+            months_avail.sort(reverse=True)
+            default_m = now.strftime('%Y-%m')
+            default_idx = months_avail.index(default_m) if default_m in months_avail else 0
+            sel_m = st.selectbox(
+                "Month", 
+                months_avail, 
+                index=default_idx, 
+                format_func=lambda x: datetime.strptime(x, '%Y-%m').strftime('%b %Y'),
+                label_visibility="collapsed"
+            )
+        else:
+            sel_m = now.strftime('%Y-%m')
+
     st.markdown('<div class="chw">', unsafe_allow_html=True)
     if fdf.empty:
         st.info("No data available to generate a heatmap.")
     else:
-        hm_df = fdf[fdf['Date'].dt.month == now.month].copy()
+        selected_dt = datetime.strptime(sel_m, '%Y-%m')
+        hm_df = fdf[(fdf['Date'].dt.year == selected_dt.year) & (fdf['Date'].dt.month == selected_dt.month)].copy()
+        
         if hm_df.empty:
-            st.caption("No spending recorded in the current month for the heatmap.")
+            st.caption(f"No spending recorded in {selected_dt.strftime('%B %Y')} for the heatmap.")
         else:
             hm_df['Day'] = hm_df['Date'].dt.day
             daily_spend = hm_df.groupby('Day')['Amount'].sum().to_dict()
             max_spend = max(daily_spend.values()) if daily_spend else 1
             
             calendar.setfirstweekday(calendar.SUNDAY)
-            cal = calendar.monthcalendar(now.year, now.month)
+            cal = calendar.monthcalendar(selected_dt.year, selected_dt.month)
             
             z_data = []
             text_data = []
@@ -670,7 +691,7 @@ if page == "Dashboard":
                         row_s.append(0)
                     else:
                         amt = daily_spend.get(day, 0)
-                        row_t.append(f"{now.strftime('%b')} {day}")
+                        row_t.append(f"{selected_dt.strftime('%b')} {day}")
                         row_s.append(amt)
                         
                         # Discretize into 5 levels (0=None, 1=Low, 2=Medium, 3=High, 4=Max)
@@ -722,11 +743,11 @@ if page == "Dashboard":
                 margin=dict(l=10, r=10, t=30, b=10),
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                title=dict(text=f"Spending Intensity ({now.strftime('%B')})", font=dict(color=TX3, size=11)),
+                title=dict(text=f"Spending Intensity ({selected_dt.strftime('%B %Y')})", font=dict(color=TX3, size=11)),
                 xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
                 yaxis=dict(showgrid=False, zeroline=False, tickfont=dict(color=TX3, size=10))
             )
-            st.plotly_chart(fig_hm, use_container_width=True)
+            st.plotly_chart(fig_hm, width='stretch')
     st.markdown('</div>', unsafe_allow_html=True)
 
     # Monthly spend trend line

@@ -96,10 +96,14 @@ BUDGETS = {
 # ── Date helpers ───────────────────────────────────────────────────────────────
 def random_date_in_month(year: int, month: int) -> str:
     """Return a random date string (YYYY-MM-DD) within the given month."""
-    if month == 12:
-        last_day = 31
+    today = date.today()
+    if year == today.year and month == today.month:
+        last_day = today.day
     else:
-        last_day = (date(year, month + 1, 1) - timedelta(days=1)).day
+        if month == 12:
+            last_day = 31
+        else:
+            last_day = (date(year, month + 1, 1) - timedelta(days=1)).day
     day = random.randint(1, last_day)
     return date(year, month, day).strftime("%Y-%m-%d")
 
@@ -135,6 +139,14 @@ def ensure_schema():
         CREATE TABLE IF NOT EXISTS budgets (
             category     TEXT PRIMARY KEY,
             limit_amount REAL
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS goals (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            name           TEXT,
+            target_amount  REAL,
+            current_amount REAL
         )
     """)
     conn.commit()
@@ -177,17 +189,19 @@ def seed():
 
     existing = count_existing()
     if existing > 0:
-        print(f"\n⚠️  Database already has {existing} expense record(s).")
-        ans = input("   Continue and ADD more rows anyway? [y/N]: ").strip().lower()
-        if ans != "y":
-            print("   Aborted — nothing was changed.")
-            return
+        print(f"\n⚠️  Database already has {existing} expense record(s). Clearing them for fresh seed...")
+        conn = connect()
+        conn.execute("DELETE FROM expenses")
+        conn.execute("DELETE FROM budgets")
+        conn.execute("DELETE FROM goals")
+        conn.commit()
+        conn.close()
 
-    print("\n🌱 Seeding 4 months of dummy data …\n")
+    print("\n🌱 Seeding 3 months of dummy data (up to today) …\n")
     total_inserted = 0
 
-    # 4 months: current month + 3 previous months
-    for months_ago in range(3, -1, -1):   # 3, 2, 1, 0  →  oldest to newest
+    # 3 months: current month + 2 previous months
+    for months_ago in range(2, -1, -1):   # 2, 1, 0  →  oldest to newest
         year, month = months_back(months_ago)
         month_label = date(year, month, 1).strftime("%B %Y")
         month_count = 0
@@ -215,8 +229,25 @@ def seed():
         upsert_budget(cat, limit)
         print(f"   • {cat:15s} ₹{limit:,}")
 
-    print(f"\n🎉 Done! Inserted {total_inserted} expenses across 4 months.")
-    print("   Start the app with:  python -m streamlit run app.py\n")
+    # Set goals
+    print("\n🎯 Setting financial goals …")
+    GOALS = {
+        "Emergency Fund": (50000, 25000),
+        "Vacation": (30000, 8000),
+        "New Laptop": (85000, 32000)
+    }
+    conn = connect()
+    for name, (target, current) in GOALS.items():
+        conn.execute(
+            "INSERT INTO goals (name, target_amount, current_amount) VALUES (?, ?, ?)",
+            (name, target, current)
+        )
+        print(f"   • {name:15s} ₹{current:,} / ₹{target:,}")
+    conn.commit()
+    conn.close()
+
+    print(f"\n🎉 Done! Inserted {total_inserted} expenses across 3 months.")
+    print("   Refresh the Streamlit app to see the changes.\n")
 
 
 if __name__ == "__main__":
