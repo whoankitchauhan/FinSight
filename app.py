@@ -18,10 +18,14 @@ from database import (create_table, create_budget_table, add_expense,
 from insights import generate_insights
 
 # Ensure runtime directories exist before any DB calls
-os.makedirs("data",    exist_ok=True)
-os.makedirs("exports", exist_ok=True)
-create_table()
-create_budget_table()
+try:
+    os.makedirs("data",    exist_ok=True)
+    os.makedirs("exports", exist_ok=True)
+    create_table()
+    create_budget_table()
+except Exception as e:
+    st.error(f"Critical error during application startup: {str(e)}")
+    st.stop()
 
 # ── Session state defaults ─────────────────────────────────────────────────────
 if "theme" not in st.session_state:
@@ -692,12 +696,16 @@ if page == "Dashboard":
     sec("Export")
     ec, _ = st.columns([1, 4])
     with ec:
-        st.download_button(
-            "⬇️  Download CSV",
-            data=fdf.to_csv(index=False).encode("utf-8"),
-            file_name=f"expenses_{now.strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-        )
+        try:
+            csv_data = fdf.to_csv(index=False).encode("utf-8")
+            st.download_button(
+                "⬇️  Download CSV",
+                data=csv_data,
+                file_name=f"expenses_{now.strftime('%Y%m%d')}.csv",
+                mime="text/csv",
+            )
+        except Exception as e:
+            st.error(f"Failed to generate CSV export: {str(e)}")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -727,11 +735,13 @@ elif page == "Add Expense":
             if amount <= 0:
                 st.error("Amount must be greater than ₹0")
             else:
-                add_expense(amount, category, str(date), note)
-                st.success(
-                    f"✅  ₹{amount:,.2f} added under **{category}**"
-                    f" on {date.strftime('%d %b %Y')}"
-                )
+                if add_expense(amount, category, str(date), note):
+                    st.success(
+                        f"✅  ₹{amount:,.2f} added under **{category}**"
+                        f" on {date.strftime('%d %b %Y')}"
+                    )
+                else:
+                    st.error("Failed to save the expense due to a database error. Please try again.")
 
     # Show the five most recent entries below the form as a quick confirmation
     raw = get_all_expenses()
@@ -780,9 +790,11 @@ elif page == "Budgets":
             if b_amt <= 0:
                 st.error("Budget must be greater than ₹0")
             else:
-                set_budget(b_cat, b_amt)
-                st.success(f"✅  Budget for **{b_cat}** set to ₹{b_amt:,.2f}")
-                st.rerun()
+                if set_budget(b_cat, b_amt):
+                    st.success(f"✅  Budget for **{b_cat}** set to ₹{b_amt:,.2f}")
+                    st.rerun()
+                else:
+                    st.error("Failed to save the budget due to a database error. Please try again.")
 
     budgets = get_budgets()
     if budgets:
