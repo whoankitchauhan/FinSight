@@ -21,11 +21,14 @@
 
 ## 📸 Screenshots
 
-### 🌙 Dark Mode — Dashboard
-<img src="screenshots/dashboard_dark.png" alt="Dashboard Dark Mode" width="100%"/>
+### ☀️ Light Mode — Dashboard
+<img src="screenshots/dashboard_light.png" alt="Dashboard Light Mode" width="100%"/>
 
-### 🧠 Insights & Monthly Trend
-<img src="screenshots/dashboard_insights.png" alt="Insights and Trend" width="100%"/>
+### 📊 Charts & Spending Breakdown
+<img src="screenshots/dashboard_charts.png" alt="Bar Chart, Donut Chart and Monthly Trend" width="100%"/>
+
+### 🧠 Insights & Budget Alerts
+<img src="screenshots/dashboard_insights.png" alt="Insights and Budget Alerts" width="100%"/>
 
 ### ➕ Add Expense
 <img src="screenshots/add_expense.png" alt="Add Expense Page" width="100%"/>
@@ -33,8 +36,8 @@
 ### 💰 Budget Manager
 <img src="screenshots/budgets.png" alt="Budget Manager" width="100%"/>
 
-### ☀️ Light Mode — Dashboard
-<img src="screenshots/dashboard_light.png" alt="Dashboard Light Mode" width="100%"/>
+### 🌙 Dark Mode — Dashboard
+<img src="screenshots/dashboard_dark.png" alt="Dashboard Dark Mode" width="100%"/>
 
 ---
 
@@ -116,11 +119,12 @@ finsight/
 │
 └── screenshots/        # App screenshots used in this README
     ├── banner.png
+    ├── dashboard_light.png
     ├── dashboard_dark.png
+    ├── dashboard_charts.png
     ├── dashboard_insights.png
     ├── add_expense.png
-    ├── budgets.png
-    └── dashboard_light.png
+    └── budgets.png
 ```
 
 ---
