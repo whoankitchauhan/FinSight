@@ -139,8 +139,8 @@ finsight/
 
 **1. Clone the repository**
 ```bash
-git clone https://github.com/yourusername/finsight.git
-cd finsight
+git clone https://github.com/yourusername/finSight.git
+cd finSight
 ```
 
 **2. Create a virtual environment** *(recommended)*
