@@ -194,6 +194,8 @@ def seed():
         conn.execute("DELETE FROM expenses")
         conn.execute("DELETE FROM budgets")
         conn.execute("DELETE FROM goals")
+        conn.execute("DELETE FROM income")
+        conn.execute("DELETE FROM subscriptions")
         conn.commit()
         conn.close()
 
@@ -243,6 +245,37 @@ def seed():
             (name, target, current)
         )
         print(f"   • {name:15s} ₹{current:,} / ₹{target:,}")
+    conn.commit()
+    conn.close()
+
+    # Set income
+    print("\n💵 Setting income streams …")
+    conn = connect()
+    for months_ago in range(2, -1, -1):
+        year, month = months_back(months_ago)
+        # Salary on the 1st
+        conn.execute("INSERT INTO income (source, amount, date, note) VALUES (?, ?, ?, ?)",
+                     ("Salary", 85000, f"{year}-{month:02d}-01", "Monthly salary"))
+        # Freelance mid-month
+        if random.random() > 0.3:
+            conn.execute("INSERT INTO income (source, amount, date, note) VALUES (?, ?, ?, ?)",
+                         ("Freelance Project", 15000, f"{year}-{month:02d}-15", "Web design gig"))
+    conn.commit()
+    conn.close()
+
+    # Set subscriptions
+    print("\n🔄 Setting subscriptions …")
+    SUBS = [
+        ("Netflix Premium", 649, "Monthly", f"{date.today().year}-{date.today().month:02d}-12"),
+        ("Spotify Family", 179, "Monthly", f"{date.today().year}-{date.today().month:02d}-05"),
+        ("Gym Membership", 1500, "Monthly", f"{date.today().year}-{date.today().month:02d}-20"),
+        ("Amazon Prime", 1499, "Yearly", f"{date.today().year}-10-15")
+    ]
+    conn = connect()
+    for name, amt, cycle, dt in SUBS:
+        conn.execute("INSERT INTO subscriptions (name, amount, cycle, date) VALUES (?, ?, ?, ?)",
+                     (name, amt, cycle, dt))
+        print(f"   • {name:15s} ₹{amt:,} ({cycle})")
     conn.commit()
     conn.close()
 
