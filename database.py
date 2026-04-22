@@ -51,6 +51,25 @@ def create_budget_table():
         print(f"Error creating budgets table: {e}")
 
 
+def create_goals_table():
+    """Create the goals table if it doesn't already exist."""
+    try:
+        conn = _connect()
+        if not conn: return
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS goals (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                name           TEXT,
+                target_amount  REAL,
+                current_amount REAL
+            )
+        """)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"Error creating goals table: {e}")
+
+
 # ── Expense operations ────────────────────────────────────────────────────────
 
 def add_expense(amount, category, date, note):
@@ -81,6 +100,20 @@ def get_all_expenses():
     except sqlite3.Error as e:
         print(f"Error fetching expenses: {e}")
         return []
+
+
+def delete_expense(expense_id):
+    """Delete an expense record by its ID."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error deleting expense: {e}")
+        return False
 
 
 # ── Budget operations ─────────────────────────────────────────────────────────
@@ -116,3 +149,66 @@ def get_budgets():
     except sqlite3.Error as e:
         print(f"Error fetching budgets: {e}")
         return {}
+
+
+# ── Goal operations ───────────────────────────────────────────────────────────
+
+def add_goal(name, target_amount, current_amount=0.0):
+    """Insert a new financial goal."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute(
+            "INSERT INTO goals (name, target_amount, current_amount) VALUES (?, ?, ?)",
+            (name, target_amount, current_amount),
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error adding goal: {e}")
+        return False
+
+
+def get_all_goals():
+    """Return all goals as a list of tuples."""
+    try:
+        conn = _connect()
+        if not conn: return []
+        rows = conn.execute("SELECT * FROM goals").fetchall()
+        conn.close()
+        return rows
+    except sqlite3.Error as e:
+        print(f"Error fetching goals: {e}")
+        return []
+
+
+def add_funds_to_goal(goal_id, amount_to_add):
+    """Add funds to an existing goal."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute(
+            "UPDATE goals SET current_amount = current_amount + ? WHERE id = ?",
+            (amount_to_add, goal_id),
+        )
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error adding funds to goal: {e}")
+        return False
+
+
+def delete_goal(goal_id):
+    """Delete a goal by ID."""
+    try:
+        conn = _connect()
+        if not conn: return False
+        conn.execute("DELETE FROM goals WHERE id = ?", (goal_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except sqlite3.Error as e:
+        print(f"Error deleting goal: {e}")
+        return False
