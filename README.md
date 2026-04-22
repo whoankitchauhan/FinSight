@@ -24,13 +24,22 @@
 ### ☀️ Light Mode — Dashboard
 <img src="screenshots/dashboard_light.png" alt="Dashboard Light Mode" width="100%"/>
 
+### 💵 Income Tracking & Net Savings
+<img src="screenshots/income.png" alt="Income Page" width="100%"/>
+
+### 🔄 Subscriptions Manager
+<img src="screenshots/subscriptions.png" alt="Subscriptions Manager" width="100%"/>
+
+### 📄 Advanced Reports & CSV Export
+<img src="screenshots/reports.png" alt="Reports Page" width="100%"/>
+
 ### 📊 Charts & Spending Breakdown
 <img src="screenshots/dashboard_charts.png" alt="Bar Chart, Donut Chart and Monthly Trend" width="100%"/>
 
 ### 🧠 Insights & Budget Alerts
 <img src="screenshots/dashboard_insights.png" alt="Insights and Budget Alerts" width="100%"/>
 
-### ➕ Add Expense
+### ➕ Add Expense (with Quick Delete)
 <img src="screenshots/add_expense.png" alt="Add Expense Page" width="100%"/>
 
 ### 💰 Budget Manager
@@ -44,46 +53,60 @@
 ## ✨ Features
 
 ### 📊 Dashboard
-- **4 live KPI cards** — Total Spent, Transactions, Average per Entry, Top Category
-- **Colorful bar chart** — spending split by category (indigo, cyan, rose, amber, violet, emerald)
+- **Live KPI cards** — Total Spent, Net Savings (vs Income), Average per Entry, Top Category
+- **Daily Activity Heatmap** — GitHub-style heatmap showing spending intensity per day with a historical month selector
+- **Month-over-Month Trend** — Sidebar indicator showing spending velocity compared to the previous month
+- **Colorful bar chart** — spending split by category
 - **Interactive donut chart** — category share with center total
 - **Monthly trend line chart** — spline line with area fill over time
 - **Filterable** — narrow by date range and category using sidebar filters
 
+### 💵 Income Tracking
+- Log income streams (Salary, Freelance, Investments)
+- Live calculation of **Net Savings** on the Dashboard
+- Visual list of recent incoming cash flow
+
+### 🔄 Subscriptions Manager
+- Track recurring costs (Netflix, Gym, etc.)
+- Set billing cycle (Monthly / Yearly)
+- Calculates your **Total Monthly Subscription Burden** (the silent drain)
+
 ### 🧠 Smart Insights (Auto-generated)
 - Total spending summary
 - Top spending category detection
-- Week-over-week trend comparison (spending up / down)
-- Unusual / high-value transaction detection
+- Week-over-week trend comparison
+- Smart Forecast projecting your month-end spend based on current velocity
 
 ### 🚨 Budget Alerts
 - Set monthly budget limits per category
 - Real-time progress bars showing how much is used
 - Color-coded status: **ON TRACK** (green) · **NEAR LIMIT** (amber) · **EXCEEDED** (red)
 
-### ➕ Add Expense
+### ➕ Add Expense & Quick Delete
 - Log amount, category, date, and note
-- Category icons for quick recognition (🍽️ Food · ✈️ Travel · 🛍️ Shopping · 📄 Bills · 🎬 Entertainment · 📦 Other)
-- Instant success confirmation with transaction details
-- Recent transactions preview below the form
+- Category icons for quick recognition
+- Inline **Quick Delete** buttons on recent transactions to instantly fix mistakes
 
-### 💰 Budget Manager
+### 💰 Goals & Budget Manager
+- Track Savings Goals with visual gauge charts
 - Set or update monthly budget per category
-- Visual progress bars per category (current month data)
-- Persistent storage via SQLite
+- Visual progress bars per category
+
+### 📄 Advanced Reports & Export
+- Dedicated page for complex queries
+- Multi-select categories and custom date ranges
+- Live tabular data preview
+- Export filtered data to **CSV** with one click using a native download button
 
 ### 🎨 UI/UX
 | Feature | Detail |
 |---------|--------|
-| **Theme** | Light ☀️ / Dark 🌙 toggle in sidebar |
-| **Gradient hero banners** | Unique color per page (Indigo→Cyan, Teal→Cyan, Amber→Gold) |
-| **Sidebar** | Month stats card, category breakdown, nav buttons, quick tip, theme toggle |
+| **Theme** | Light ☀️ / Dark 🌙 toggle in sidebar (Light mode by default) |
+| **Gradient hero banners** | Unique color per page for a premium feel |
+| **Sidebar Navigation** | Clean, flush-left menu routing to 7 dedicated features |
 | **Charts** | Fully interactive Plotly charts (hover, zoom) |
 | **Typography** | Inter font via Google Fonts |
 | **Responsive** | Adapts to all screen sizes via Streamlit's wide layout |
-
-### 📤 Export
-- Export filtered data to **CSV** with one click (Download button)
 
 ---
 
@@ -105,22 +128,26 @@
 ```
 finsight/
 │
-├── app.py              # Main application — all pages, UI, routing, and CSS
-├── database.py         # SQLite CRUD layer (expenses + budgets)
-├── insights.py         # Spending insight generation from a filtered DataFrame
+├── app.py              # Main application — all 7 pages, UI, routing, and CSS
+├── database.py         # SQLite CRUD layer (expenses, budgets, goals, income, subscriptions)
+├── insights.py         # Spending insight generation & forecasting
 ├── requirements.txt    # Python dependencies
+├── seed_data.py        # Generates realistic dummy data
 ├── .gitignore          # Excludes the database, exports, and cache from Git
 │
 ├── .streamlit/
-│   └── config.toml     # Streamlit theme configuration (dark base + accent colours)
+│   └── config.toml     # Streamlit theme configuration (light base + accent colours)
 │
 ├── data/               # Auto-created at runtime; holds the SQLite database
-├── exports/            # CSV exports land here when downloaded from the Dashboard
+├── exports/            # CSV exports land here when downloaded from the Reports page
 │
 └── screenshots/        # App screenshots used in this README
     ├── banner.png
     ├── dashboard_light.png
     ├── dashboard_dark.png
+    ├── income.png
+    ├── subscriptions.png
+    ├── reports.png
     ├── dashboard_charts.png
     ├── dashboard_insights.png
     ├── add_expense.png
@@ -199,6 +226,32 @@ plotly
 | `category` | TEXT (PK) | Category name |
 | `limit_amount` | REAL | Monthly budget in ₹ |
 
+### `goals` table
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER (PK) | Auto-incremented ID |
+| `name` | TEXT | Goal name |
+| `target_amount` | REAL | Target savings in ₹ |
+| `current_amount` | REAL | Current savings in ₹ |
+
+### `subscriptions` table
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER (PK) | Auto-incremented ID |
+| `name` | TEXT | Service name (e.g. Netflix) |
+| `amount` | REAL | Subscription cost in ₹ |
+| `cycle` | TEXT | Monthly or Yearly |
+| `date` | TEXT | Next billing date (YYYY-MM-DD) |
+
+### `income` table
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INTEGER (PK) | Auto-incremented ID |
+| `source` | TEXT | Income source (e.g. Salary) |
+| `amount` | REAL | Income amount in ₹ |
+| `date` | TEXT | Date string (YYYY-MM-DD) |
+| `note` | TEXT | Optional description |
+
 ---
 
 ## 🧩 Module Overview
@@ -207,7 +260,7 @@ plotly
 The main entry point. Handles:
 - Page routing via `st.session_state.page`
 - Light / Dark theme switching via `st.session_state.theme`
-- All three pages: **Dashboard**, **Add Expense**, **Budgets**
+- All seven pages: **Dashboard**, **Add Expense**, **Budgets**, **Goals**, **Income**, **Subscriptions**, **Reports**
 - A CSS design system built up from per-theme colour tokens
 - Plotly chart rendering with a shared `plotly_fig()` helper
 - Sidebar with live this-month stats and category breakdown
@@ -232,22 +285,25 @@ Derives 3–4 plain-English insights from a filtered DataFrame:
 
 ## 💡 Usage Guide
 
-### Step 1 — Add Your Expenses
-Navigate to **➕ Add Expense** in the sidebar. Fill in the amount, pick a category, select the date, and optionally add a note. Click **Add Expense**. The entry is saved instantly to the local SQLite database.
+### Step 1 — Log Income & Fixed Costs
+Navigate to **💵 Income** to track your incoming cash flow. Head over to **🔄 Subscriptions** to log your Netflix or Gym memberships and see your "Total Monthly Burden".
 
-### Step 2 — Set Budgets
-Go to **💰 Budgets**. Select a category and enter your monthly spending limit. Hit **Save Budget**. The Budget Overview section below shows your current month's usage with a color-coded progress bar.
+### Step 2 — Add Your Expenses
+Navigate to **➕ Add Expense** in the sidebar. Fill in the amount, pick a category, and hit **Save Expense**. Made a mistake? Use the new **Quick Delete** button inline.
 
-### Step 3 — Explore the Dashboard
+### Step 3 — Set Goals & Budgets
+Go to **🎯 Goals** to set up savings targets. Use **💰 Budgets** to set monthly spending limits per category and monitor your progress.
+
+### Step 4 — Explore the Dashboard
 Head to **🏠 Dashboard**. Use the date range and category filters to drill into your data. Explore the:
-- **KPI cards** for a quick summary
+- **KPI cards** including your live **Net Savings**
+- **Daily Activity Heatmap** to see your spending intensity
 - **Bar + Donut charts** for category breakdown
-- **Trend line** for month-over-month patterns
-- **Smart Insights** for auto-generated spending analysis
+- **Smart Insights & Forecasting** for auto-generated spending analysis
 - **Budget Alerts** to see which categories are over or near limit
 
-### Step 4 — Export
-Scroll to the bottom of the Dashboard and click **⬇️ Download CSV** to export your filtered transactions.
+### Step 5 — Export Custom Reports
+Need data for tax season? Jump into the **📄 Reports** tab. Apply advanced filters, preview your data, and click **Download CSV Report**.
 
 ---
 
