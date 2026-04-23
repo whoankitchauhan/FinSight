@@ -8,6 +8,7 @@ delegated to database.py and insight generation to insights.py.
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.graph_objects as go
 import os
@@ -130,6 +131,11 @@ html, body, [class*="css"] {{ font-family:'Inter',sans-serif; }}
 footer {{ visibility:hidden; }}
 
 {_widget_light}
+
+/* ── Global Fixes ── */
+.stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input, .stSelectbox>div>div, .stMultiSelect>div>div {{
+    caret-color: {TX1} !important;
+}}
 
 /* ── Hero banner ── */
 .hero {{
@@ -511,6 +517,7 @@ with st.sidebar:
             width="stretch",
             type="primary" if active else "secondary",
         ):
+            st.session_state.scroll_to_top = True
             st.session_state.page = name
             st.rerun()
 
@@ -573,6 +580,10 @@ with st.sidebar:
 
 # ── Page routing ───────────────────────────────────────────────────────────────
 page = st.session_state.page
+
+if st.session_state.get('scroll_to_top', False):
+    st.html("<script>window.parent.document.querySelector('.main').scrollTo(0,0);</script>")
+    st.session_state.scroll_to_top = False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1304,7 +1315,7 @@ elif page == "Reports":
             # Format dataframe for display
             disp_df = fdf.copy()
             disp_df["Date"] = disp_df["Date"].dt.strftime("%Y-%m-%d")
-            st.dataframe(disp_df, use_container_width=True, hide_index=True)
+            st.dataframe(disp_df, width="stretch", hide_index=True)
             
             # CSV Download
             csv = disp_df.to_csv(index=False).encode('utf-8')
