@@ -358,6 +358,14 @@ def parse_smart_add(text):
     date_val = datetime.today().date()
     if "yesterday" in text_lower:
         date_val -= timedelta(days=1)
+
+        # Case 2: dd/mm/yyyy format
+    match_date = re.search(r'\b(\d{2}/\d{2}/\d{4})\b', text)
+    if match_date:
+        try:
+            date_val = datetime.strptime(match_date.group(), "%d/%m/%Y").date()
+        except:
+            pass
         
     return amt, cat_found, date_val, text
 
