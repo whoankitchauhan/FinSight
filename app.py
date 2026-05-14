@@ -47,7 +47,7 @@ DARK = st.session_state.theme == "dark"
 now  = datetime.now()
 
 st.set_page_config(
-    page_title="Finsight",
+    page_title="FinSight",
     page_icon="💳",
     layout="wide",
     initial_sidebar_state="expanded",
