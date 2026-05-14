@@ -24,6 +24,21 @@
 ### ☀️ Light Mode — Dashboard
 <img src="screenshots/dashboard_light.png" alt="Dashboard Light Mode" width="100%"/>
 
+### 📊 Charts & Spending Breakdown
+<img src="screenshots/dashboard_charts.png" alt="Bar Chart, Donut Chart and Monthly Trend" width="100%"/>
+
+### 🧠 Insights & Budget Alerts
+<img src="screenshots/dashboard_insights.png" alt="Daily Heatmap, Insights and Budget Alerts" width="100%"/>
+
+### ➕ Add Expense (with Quick Delete)
+<img src="screenshots/add_expense.png" alt="Add Expense Page" width="100%"/>
+
+### 💰 Budget Manager
+<img src="screenshots/budgets.png" alt="Budget Manager" width="100%"/>
+
+### 🎯 Goals & Savings Tracker
+<img src="screenshots/goals.png" alt="Goals Page" width="100%"/>
+
 ### 💵 Income Tracking & Net Savings
 <img src="screenshots/income.png" alt="Income Page" width="100%"/>
 
@@ -32,18 +47,6 @@
 
 ### 📄 Advanced Reports & CSV Export
 <img src="screenshots/reports.png" alt="Reports Page" width="100%"/>
-
-### 📊 Charts & Spending Breakdown
-<img src="screenshots/dashboard_charts.png" alt="Bar Chart, Donut Chart and Monthly Trend" width="100%"/>
-
-### 🧠 Insights & Budget Alerts
-<img src="screenshots/dashboard_insights.png" alt="Insights and Budget Alerts" width="100%"/>
-
-### ➕ Add Expense (with Quick Delete)
-<img src="screenshots/add_expense.png" alt="Add Expense Page" width="100%"/>
-
-### 💰 Budget Manager
-<img src="screenshots/budgets.png" alt="Budget Manager" width="100%"/>
 
 ### 🌙 Dark Mode — Dashboard
 <img src="screenshots/dashboard_dark.png" alt="Dashboard Dark Mode" width="100%"/>
@@ -103,10 +106,11 @@
 |---------|--------|
 | **Theme** | Light ☀️ / Dark 🌙 toggle in sidebar (Light mode by default) |
 | **Gradient hero banners** | Unique color per page for a premium feel |
-| **Sidebar Navigation** | Clean, flush-left menu routing to 7 dedicated features |
-| **Charts** | Fully interactive Plotly charts (hover, zoom) |
+| **Sidebar Navigation** | Clean, flush-left menu routing to 7 dedicated pages |
+| **Charts** | Fully interactive Plotly charts (hover, zoom, heatmap) |
 | **Typography** | Inter font via Google Fonts |
 | **Responsive** | Adapts to all screen sizes via Streamlit's wide layout |
+| **Smart Add** | Natural language expense entry (e.g. "50 food yesterday") |
 
 ---
 
@@ -145,13 +149,14 @@ finsight/
     ├── banner.png
     ├── dashboard_light.png
     ├── dashboard_dark.png
-    ├── income.png
-    ├── subscriptions.png
-    ├── reports.png
     ├── dashboard_charts.png
     ├── dashboard_insights.png
     ├── add_expense.png
-    └── budgets.png
+    ├── budgets.png
+    ├── goals.png
+    ├── income.png
+    ├── subscriptions.png
+    └── reports.png
 ```
 
 ---
@@ -263,7 +268,8 @@ The main entry point. Handles:
 - All seven pages: **Dashboard**, **Add Expense**, **Budgets**, **Goals**, **Income**, **Subscriptions**, **Reports**
 - A CSS design system built up from per-theme colour tokens
 - Plotly chart rendering with a shared `plotly_fig()` helper
-- Sidebar with live this-month stats and category breakdown
+- Sidebar with live this-month stats, category breakdown, and MoM trend
+- `parse_smart_add()` — natural-language expense parsing helper
 
 ### `database.py`
 A thin SQLite CRUD layer — no external ORM needed:
