@@ -149,6 +149,24 @@ def ensure_schema():
             current_amount REAL
         )
     """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            name     TEXT,
+            amount   REAL,
+            cycle    TEXT,
+            date     TEXT
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS income (
+            id       INTEGER PRIMARY KEY AUTOINCREMENT,
+            source   TEXT,
+            amount   REAL,
+            date     TEXT,
+            note     TEXT
+        )
+    """)
     conn.commit()
     conn.close()
 
